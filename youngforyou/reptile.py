@@ -25,18 +25,19 @@ def crawl_wiki_data():
 
         # 将一段文档传入BeautifulSoup的构造方法,就能得到一个文档的对象, 可以传入一段字符串
         soup = BeautifulSoup(response.text, 'lxml')
-        print(response.text)
+        # print(response.text)
         # 返回的是class为table-view log-set-param的<table>所有标签
-        tables = soup.find_all('table', {'class': 'table-view log-set-param'})
-
+        # tables = soup.find_all('table', {'class': 'table-view log-set-param'})
+        tables = soup.find_all('table', {'class': 'tableBox_hIjb7'})
+        print(tables[6])
         crawl_table_title = "参赛学员"
-
-        for table in tables:
-            # 对当前节点前面的标签和字符串进行查找
-            table_titles = table.find_previous('div').find_all('h3')
-            for title in table_titles:
-                if (crawl_table_title in title):
-                    return table
+        return tables[6]
+        # for table in tables:
+        #     # 对当前节点前面的标签和字符串进行查找
+        #     table_titles = table.find_previous('div').find_all('h3')
+        #     for title in table_titles:
+        #         if (crawl_table_title in title):
+        #             return table
     except Exception as e:
         print(e)
 
@@ -60,28 +61,32 @@ def parse_wiki_data(table_html):
         # 姓名
         star["name"] = all_tds[0].text
         # 个人百度百科链接
-        star["link"] = 'https://baike.baidu.com' + all_tds[0].find('a').get('href')
+        link_element = all_tds[0].find('a')
+        if(link_element):
+            star["link"] = 'https://baike.baidu.com' + link_element.get('href')
+        else:
+            star["link"] = ""
         # 籍贯
         star["zone"] = all_tds[1].text
         # 星座
         star["constellation"] = all_tds[2].text
         # 身高
-        star["height"] = all_tds[3].text
+        # star["height"] = all_tds[3].text
         # 体重
-        star["weight"] = all_tds[4].text
+        # star["weight"] = all_tds[4].text
 
         # 花语,去除掉花语中的单引号或双引号
-        flower_word = all_tds[5].text
+        flower_word = all_tds[3].text
         for c in flower_word:
             if c in error_list:
                 flower_word = flower_word.replace(c, '')
         star["flower_word"] = flower_word
 
         # 公司
-        if not all_tds[6].find('a') is None:
-            star["company"] = all_tds[6].find('a').text
+        if not all_tds[4].find('a') is None:
+            star["company"] = all_tds[4].find('a').text
         else:
-            star["company"] = all_tds[6].text
+            star["company"] = all_tds[4].text
 
         stars.append(star)
 
@@ -109,12 +114,38 @@ def crawl_pic_urls():
     }
 
     for star in json_array:
+
+
+
         name = star['name']
         link = star['link']
-
         # ！！！请在以下完成对每个选手图片的爬取，将所有图片url存储在一个列表pic_urls中！！！
         pic_urls = []
-        pic_urls.append(link)
+        if link== "":
+            print("找不到链接")
+            continue
+
+        response = requests.get(link, headers=headers,timeout=15)
+        soup = BeautifulSoup(response.text, 'lxml')
+        images = soup.find_all('img')
+        for image in images:
+            # 对当前节点前面的标签和字符串进行查找
+            if 'alt' in image.attrs:
+                alt_text = image.attrs['alt']
+                if alt_text == '百度百科':
+                    continue
+
+            if 'src' in image.attrs:
+                src_text = image.attrs['src']
+                if src_text.endswith("png"):
+                    continue
+                pic_urls.append(src_text)
+            # for title in table_titles:
+                # if (crawl_table_title in title):
+                #     return table
+        print(name )
+        print(pic_urls)
+        # pic_urls.append(link)
         # ！！！根据图片链接列表pic_urls, 下载所有图片，保存在以name命名的文件夹中！！！
         down_pic(name, pic_urls)
 
@@ -155,15 +186,15 @@ def show_pic_path(path):
 
 if __name__ == '__main__':
     # 爬取百度百科中《青春有你2》中参赛选手信息，返回html
-    html = crawl_wiki_data()
+    # html = crawl_wiki_data()
 
     # 解析html,得到选手信息，保存为json文件
-    parse_wiki_data(html)
+    # parse_wiki_data(html)
 
     # 从每个选手的百度百科页面上爬取图片,并保存
-    #crawl_pic_urls()
+    crawl_pic_urls()
 
     # 打印所爬取的选手图片路径
-    # show_pic_path('/home/aistudio/work/pics/')
+    # show_pic_path('youngforyou/work/pics/')
 
     print("所有信息爬取完成！")
