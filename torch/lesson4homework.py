@@ -1,7 +1,7 @@
 import torch
-
+# y=2*x**2+3*x+2
 x_data = [1.0, 2.0, 3.0]
-y_data = [2.0, 4.0, 6.0]
+y_data = [7.0, 16.0, 29.0]
 
 w1 = torch.Tensor([1.0])  # 初始权值
 w1.requires_grad = True  # 计算梯度，默认是不计算的

@@ -2,6 +2,7 @@ import torch
 
 # prepare dataset
 # x,y是矩阵，3行1列 也就是说总共有3个数据，每个数据只有1个特征
+# minibatch 风格
 x_data = torch.tensor([[1.0], [2.0], [3.0]])
 y_data = torch.tensor([[2.0], [4.0], [6.0]])
 
@@ -14,15 +15,18 @@ class nn.Linear has implemented the magic method __call__(),which enable the ins
 be called just like a function.Normally the forward() will be called 
 """
 
-
+# 模板，基本所有的模型都这样写
 class LinearModel(torch.nn.Module):
     def __init__(self):
+        # 调用父类构造
         super(LinearModel, self).__init__()
         # (1,1)是指输入x和输出y的特征维度，这里数据集中的x和y的特征都是1维的
         # 该线性层需要学习的参数是w和b  获取w/b的方式分别是~linear.weight/linear.bias
         self.linear = torch.nn.Linear(1, 1)
 
+
     def forward(self, x):
+        # 对象后加括号，是 callable
         y_pred = self.linear(x)
         return y_pred
 
@@ -35,7 +39,7 @@ criterion = torch.nn.MSELoss(reduction='sum')
 optimizer = torch.optim.SGD(model.parameters(), lr=0.01)  # model.parameters()自动完成参数的初始化操作，这个地方我可能理解错了
 
 # training cycle forward, backward, update
-for epoch in range(100):
+for epoch in range(1000):
     y_pred = model(x_data)  # forward:predict
     loss = criterion(y_pred, y_data)  # forward: loss
     print(epoch, loss.item())
