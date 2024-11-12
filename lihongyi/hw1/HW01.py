@@ -112,6 +112,7 @@ def trainer(train_loader, valid_loader, model, config, device):
     config: 配置字典，包含训练参数。
     device: 模型和数据所在的设备。
     """
+    # 经典的 MSE 损失函数
     criterion = nn.MSELoss(reduction='mean')  # Define your loss function, do not modify this.
 
     # Define your optimization algorithm.
