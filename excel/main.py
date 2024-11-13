@@ -53,7 +53,7 @@ def main():
             grouped_df = process_file(file_path)
 
             # 使用 pivot_table 方法将数据透视
-            pivot_df = grouped_df.pivot_table(index=['姓名', '身份证号'], columns='费款所属期', values='金额',
+            pivot_df = grouped_df.pivot_table(index=['姓名', '身份证号'], columns='费款所属期', values='个人缴费',
                                               aggfunc='sum').fillna(0).reset_index()
 
             # 重命名列
@@ -63,14 +63,14 @@ def main():
             pivot_df['缴费总计'] = pivot_df.iloc[:, 2:].sum(axis=1)
 
             # 重新排序列
-            pivot_df = pivot_df[['姓名', '身份证号'] + [f'{year}缴费' for year in YEARS] + ['缴费总计']]
+            # pivot_df = pivot_df[['姓名', '身份证号'] + [f'{year}缴费' for year in YEARS] + ['缴费总计']]
 
-            new_row = build_new_row(grouped_df)
-            totalDf.loc[len(totalDf)] = new_row
-            print(totalDf)
+            # new_row = build_new_row(grouped_df)
+            # totalDf.loc[len(totalDf)] = new_row
+            print(pivot_df)
 
     output_file = 'processed.xlsx'
-    totalDf.to_excel(output_file, index=False)
+    pivot_df.to_excel(output_file, index=False)
     print(f"所有文件处理完毕，结果已保存到: {output_file}")
 
     input('按任意键退出......')
