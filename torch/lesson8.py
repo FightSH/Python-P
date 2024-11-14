@@ -9,8 +9,8 @@ from torch.utils.data import DataLoader
 
 class DiabetesDataset(Dataset):
     def __init__(self, filepath):
-        xy = np.loadtxt(filepath, delimiter=',', dtype=np.float32)
-        self.len = xy.shape[0]  # shape(多少行，多少列)
+        xy = np.loadtxt(filepath, delimiter=',', dtype=np.float32,skiprows=1)
+        self.len = xy.shape[0]  # shape(多少行，多少列)  shape0 矩阵行数  shape1 矩阵列数
         self.x_data = torch.from_numpy(xy[:, :-1])
         self.y_data = torch.from_numpy(xy[:, [-1]])
 
@@ -21,7 +21,7 @@ class DiabetesDataset(Dataset):
         return self.len
 
 
-dataset = DiabetesDataset('diabetes.csv')
+dataset = DiabetesDataset('./data/diabetes.csv')
 train_loader = DataLoader(dataset=dataset, batch_size=32, shuffle=True, num_workers=0)  # num_workers 多线程
 
 
@@ -51,9 +51,19 @@ optimizer = torch.optim.SGD(model.parameters(), lr=0.01)
 
 # training cycle forward, backward, update
 if __name__ == '__main__':
+    # epoch  one forward pass and one backward pass of all the training examples
+    # batchSize the number of training examples in one forward backward pass
+    # iteration number of passes ,each pass using batchSize number of examples
+    # 10000个样本  1000个batchSize  10个iteration
     for epoch in range(100):
         for i, data in enumerate(train_loader, 0):  # train_loader 是先shuffle后mini_batch
+            # 注意 train_loader 中的元组数据放到里data里 。相当于getItem
             inputs, labels = data
+            # inputs里的数据行数是32
+            # print("------")
+            # print(inputs)
+            # print(labels)
+            # print("------")
             y_pred = model(inputs)
             loss = criterion(y_pred, labels)
             print(epoch, i, loss.item())
