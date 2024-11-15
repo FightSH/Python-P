@@ -1,79 +1,82 @@
 import numpy as np
 import torch
-import matplotlib.pyplot as plt
+import torch.nn as nn
+from numexpr.necompiler import double
+from torch.utils.data import Dataset
+from torch.utils.data import DataLoader
+
+
+
+
 
 # prepare dataset
-# xy = np.loadtxt('./data/diabetes.csv', delimiter=',', dtype=np.float32)
-data = np.fromfile('./work/housing.data', sep=' ')
 feature_names = [ 'CRIM', 'ZN', 'INDUS', 'CHAS', 'NOX', 'RM', 'AGE','DIS',
                  'RAD', 'TAX', 'PTRATIO', 'B', 'LSTAT', 'MEDV' ]
+
 feature_num = len(feature_names)
-data = data.reshape([data.shape[0] // feature_num, feature_num])
+
+
+class BostonDataset(Dataset):
+    def __init__(self, filepath):
+        original_data = np.fromfile(filepath, sep=' ',dtype=double)
+
+        data = original_data.reshape([original_data.shape[0] // feature_num, feature_num])
+        self.len = data.shape[0]  # shape(多少行，多少列)
+        self.x_data = torch.from_numpy(data[:, :-1])
+        self.y_data = torch.from_numpy(data[:, [-1]])
+
+    def __getitem__(self, index):
+        return self.x_data[index], self.y_data[index]
+
+    def __len__(self):
+        return self.len
 
 
 
-offset = int(data.shape[0] * 0.8)
-training_data = data[:offset]
+dataset = BostonDataset('work/housing.data')
+train_loader = DataLoader(dataset=dataset, batch_size=10, shuffle=True, num_workers=2)  # num_workers 多线程
 
-# 计算训练集的最大值，最小值
-maximums, minimums = training_data.max(axis=0), \
-    training_data.min(axis=0)
 
-# 对数据进行归一化处理
-for i in range(feature_num):
-    data[:, i] = (data[:, i] - minimums[i]) / (maximums[i] - minimums[i])
 
-training_data = data[:offset]
-test_data = data[offset:]
-
-x_data = torch.from_numpy(training_data[:, :-1])  # 第一个‘：’是指读取所有行，第二个‘：’是指从第一列开始，最后一列不要
-y_data = torch.from_numpy(training_data[:, [-1]])  # [-1] 最后得到的是个矩阵
-
-# Print out the number of features.
-print(f'number of features: {x_data.shape[1]}')
-print(f'number of features: {y_data.shape[1]}')
 # design model using class
+class My_Model(torch.nn.Module):
+    def __init__(self, input_dim):
+        super(My_Model, self).__init__()
+        # TODO: modify model's structure, be aware of dimensions.
+        self.layers = nn.Sequential(
+            nn.Linear(input_dim, 6).double(),
+            nn.ReLU(),
+            nn.Linear(6, 1).double()
 
-
-class Model(torch.nn.Module):
-    def __init__(self,input_dim):
-        super(Model, self).__init__()
-        self.linear1 = torch.nn.Linear(input_dim, 6)
-        # 输入数据x的特征是8维，x有8个特征
-        self.ReLU(),
-        self.linear2 = torch.nn.Linear(6, 1)
+        )
 
     def forward(self, x):
-        y_pred = self.linear(x)
-        return y_pred
+        x = self.layers(x)
+        return x
 
-
-model = Model(feature_num)
-
+model = My_Model(feature_num-1)
 # construct loss and optimizer
-# criterion = torch.nn.BCELoss(size_average = True)
 criterion = torch.nn.BCELoss(reduction='mean')
-optimizer = torch.optim.SGD(model.parameters(), lr=0.1)
+optimizer = torch.optim.SGD(model.parameters(), lr=0.01)
 
-epoch_list = []
-loss_list = []
-# training cycle forward, backward, update
-for epoch in range(1000):
-    y_pred = model(x_data)
-    loss = criterion(y_pred, y_data)
-    print(epoch, loss.item())
-    epoch_list.append(epoch)
-    loss_list.append(loss.item())
 
-    optimizer.zero_grad()  # the grad computer by .backward() will be accumulated. so before backward, remember set the grad to zero
-    loss.backward()
+if __name__ == '__main__':
+    # training cycle forward, backward, update
+    for epoch in range(100):
+        for i, data in enumerate(train_loader, 0):  # train_loader 是先shuffle后mini_batch
+            inputs, labels = data
+            print(inputs.shape)
+            y_pred = model(inputs)
+            loss = criterion(y_pred, labels)
+            print(epoch, i, loss.item())
 
-    optimizer.step()# update 参数，即更新w和b的值
+            optimizer.zero_grad()
+            loss.backward()
 
-plt.plot(epoch_list, loss_list)
-plt.ylabel('loss')
-plt.xlabel('epoch')
-plt.show()
+            optimizer.step()
+
+
+
 
 
 
