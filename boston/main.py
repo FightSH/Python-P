@@ -66,7 +66,10 @@ class My_Model(torch.nn.Module):
 
 model = My_Model(feature_num-1)
 # construct loss and optimizer
+# MSELoss (均方误差损失) 计算的是预测值与真实值之间的平方差的平均值 适用于回归任务，例如房价预测、股票价格预测等。
 criterion = torch.nn.MSELoss(reduction='mean')
+# 二元交叉熵损失 主要用于二分类问题，计算的是预测概率与真实标签之间的对数损失。例如垃圾邮件检测、疾病诊断等。
+criterion = torch.nn.BCELoss(reduction='mean')
 optimizer = torch.optim.SGD(model.parameters(), lr=0.01)
 
 
