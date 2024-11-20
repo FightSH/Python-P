@@ -81,8 +81,11 @@ class My_Model(nn.Module):
         super(My_Model, self).__init__()
         # TODO: modify model's structure, be aware of dimensions.
         self.layers = nn.Sequential(
-            nn.Linear(input_dim, 16),
+            nn.Linear(input_dim, 32),
             nn.ReLU(),
+            nn.Linear(32, 16),
+            nn.ReLU(),
+
             nn.Linear(16, 8),
             nn.ReLU(),
             nn.Linear(8, 1)
@@ -131,9 +134,16 @@ def select_feat(train_data, valid_data, test_data, select_all=True):
         feat_idx = list(range(raw_x_train.shape[1]))  # raw_x_train.shape=[条目数, 特征数]，取特征数的维度数作为特征总数。
     else:  # 当选取部分特征(用户自定义)作为训练数据时。
         # TODO: Select suitable feature colums.
-        feat_idx = list(range(1, 37))
-        for i in range(5):
-            feat_idx += list(range(37 + i * 16, 37 + i * 16 + 13))
+        feat_idx = list(range(1, 40))
+        print(f"""feat_idx1 size: {len(feat_idx)}""")
+        for i in range(3):
+            feat_idx += list(range(40 + i * 18, 40 + i * 18 + 12))
+            print(f"""feat_idxa size: {len(feat_idx)}""")
+
+    # print(f"""raw_x_train size: {raw_x_train.shape}
+    #    raw_x_valid size: {raw_x_valid.shape}
+    #    raw_x_test size: {raw_x_test.shape}""")
+
     return raw_x_train[:, feat_idx], raw_x_valid[:, feat_idx], raw_x_test[:, feat_idx], y_train, y_valid
 
 def trainer(train_loader, valid_loader, model, config, device):
@@ -339,8 +349,8 @@ model = My_Model(input_dim=x_train.shape[1]).to(device) # put your model and dat
 trainer2(train_loader, valid_loader, model, config, device)
 
 
-tb_info_dir = os.path.join(tempfile.gettempdir(), '.tensorboard-info')  # 获取tensorboard临时文件地址
-shutil.rmtree(tb_info_dir)  # 递归删除该临时文件所在目录
+# tb_info_dir = os.path.join(tempfile.gettempdir(), '.tensorboard-info')  # 获取tensorboard临时文件地址
+# shutil.rmtree(tb_info_dir)  # 递归删除该临时文件所在目录
 
 
 
