@@ -85,7 +85,6 @@ class My_Model(nn.Module):
             nn.ReLU(),
             nn.Linear(32, 16),
             nn.ReLU(),
-
             nn.Linear(16, 8),
             nn.ReLU(),
             nn.Linear(8, 1)

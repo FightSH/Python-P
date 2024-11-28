@@ -25,14 +25,15 @@ all_features[numeric_features] = all_features[numeric_features].apply(
 # 在标准化数据之后，所有均值消失，因此我们可以将缺失值设置为0
 all_features[numeric_features] = all_features[numeric_features].fillna(0)
 
-
 # 处理离散值
 # “Dummy_na=True”将“na”（缺失值）视为有效的特征值，并为其创建指示符特征
 all_features = pd.get_dummies(all_features, dummy_na=True)
+all_features = all_features.astype({col: int for col in all_features.select_dtypes(include=['bool']).columns})
 print(all_features.shape)
 
 # 样本数量
 n_train = train_data.shape[0]
+
 # 分割特征数据 获取前 n_train 行作为训练特征
 train_features = torch.tensor(all_features[:n_train].values, dtype=torch.float32)
 test_features = torch.tensor(all_features[n_train:].values, dtype=torch.float32)
@@ -51,15 +52,10 @@ class My_Model(nn.Module):
         super(My_Model, self).__init__()
         # TODO: modify model's structure, be aware of dimensions.
         self.layers = nn.Sequential(
-            nn.Linear(input_dim, 256),
-            nn.ReLU(),
-            nn.Linear(256, 128),
-            nn.ReLU(),
-            nn.Linear(128, 64),
-            nn.ReLU(),
-            nn.Linear(64, 32),
-            nn.ReLU(),
-            nn.Linear(32, 1)
+            nn.Linear(input_dim, 128),
+            nn.Sigmoid(),
+            nn.Linear(128, 1)
+
         )
 
     def forward(self, x):
@@ -72,7 +68,7 @@ class My_Model(nn.Module):
 def get_net():
     # net = nn.Sequential(nn.Linear(in_features,1))
     # return net
-    model = My_Model(331)
+    model = My_Model(330)
     return model
 
 
@@ -141,7 +137,7 @@ def k_fold(k, X_train, y_train, num_epochs, learning_rate, weight_decay,
     return train_l_sum / k, valid_l_sum / k
 
 
-k, num_epochs, lr, weight_decay, batch_size = 5, 100, 5, 0, 32
+k, num_epochs, lr, weight_decay, batch_size = 5, 500, 0.5, 0.01, 32
 train_l, valid_l = k_fold(k, train_features, train_labels, num_epochs, lr,
                           weight_decay, batch_size)
 print(f'{k}-折验证: 平均训练log rmse: {float(train_l):f}, '
