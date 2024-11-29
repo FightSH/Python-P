@@ -1,164 +1,253 @@
+import math
 import numpy as np
+
+# Reading/Writing Data
 import pandas as pd
+import os
+import csv
+
+
+# For Progress Bar
+from tqdm import tqdm
+
+# Pytorch
 import torch
-from torch import nn
-from d2l import torch as d2l
+import torch.nn as nn
+from torch.utils.data import Dataset, DataLoader, random_split
+# For plotting learning curve
+from torch.utils.tensorboard import SummaryWriter
+
+# 随机种子
+def same_seed(seed):
+    '''Fixes random number generator seeds for reproducibility.'''
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
 
 
+# 数据集合划分
+def train_valid_split(data_set, valid_ratio, seed):
+    valid_data_size = (int) (len(data_set) * valid_ratio)
+    train_data_size = len(data_set) - valid_data_size
+    train_data, valid_data = random_split(data_set, [train_data_size, valid_data_size],
+                                          generator=torch.Generator().manual_seed(seed))
+    # 以np数组形式返回
+    return np.array(train_data), np.array(valid_data)
+
+
+
+def select_feat(train_data, valid_data, test_data, select_all=True):
+    # 选最后一列 是label
+    y_train = train_data[:, -1]
+    y_valid = valid_data[:, -1]
+
+    # 选择除最后一列的所有元素
+    raw_x_train = train_data[:, :-1]
+
+    raw_x_valid = valid_data[:, :-1]
+    # 测试集没最后的label
+    raw_x_test = test_data
+
+    if select_all:
+        feat_idx = list(range(raw_x_train.shape[1]))
+    else:
+        feat_idx = list(range(1, 37))
+        for i in range(5):
+            feat_idx += list(range(37 + i * 16, 37 + i * 16 + 13))
+    print(feat_idx)
+    return raw_x_train[:, feat_idx], raw_x_valid[:, feat_idx], raw_x_test[:, feat_idx], y_train, y_valid
+
+
+# 数据集类
+class KaggleHouseDataset(Dataset):
+    #  y: Targets, if none, do prediction.
+    def __init__(self, features, targets=None):
+        if targets is None:
+            self.targets = targets
+        else:
+            self.targets = torch.FloatTensor(targets)
+
+        self.features = torch.FloatTensor(features)
+
+    def __getitem__(self, idx):
+        if self.targets is None:
+            return self.features[idx]
+        else:
+            # 做训练，需要特征和label
+            return self.features[idx], self.targets[idx]
+
+    def __len__(self):
+        return len(self.features)
+
+
+# 神经网络模型
+class My_Model(nn.Module):
+    def __init__(self, input_dim):
+        super(My_Model, self).__init__()
+        self.layers = nn.Sequential(
+            nn.Linear(input_dim, 32),
+            nn.ReLU(),
+            nn.Linear(32, 16),
+            nn.ReLU(),
+            nn.Linear(16, 1)
+        )
+
+    def forward(self, x):
+        x = self.layers(x)
+        # 压缩张量的第一个维度
+        x = x.squeeze(1)
+        return x
+
+
+# 基础配置
+device = 'cuda' if torch.cuda.is_available() else 'cpu'
+config = {
+    'seed': 5201314,  # Your seed number, you can pick your lucky number. :)
+    'select_all': True,  # Whether to use all features.
+    'valid_ratio': 0.2,  # validation_size = train_size * valid_ratio
+    'n_epochs': 3000,  # Number of epochs.
+    'batch_size': 128,
+    'learning_rate': 1e-5,
+    'early_stop': 400,  # If model has not improved for this many consecutive epochs, stop training.
+    'save_path': './models/model.ckpt'  # Your model will be saved here.
+}
+
+def trainer(train_loader, valid_loader, model, config, device):
+    # 均方误差
+    criterion = nn.MSELoss(reduction='mean')
+    optimizer = torch.optim.SGD(model.parameters(), lr=config['learning_rate'], momentum=0.9)
+    writer = SummaryWriter()  # 数据可视化
+    if not os.path.isdir('./models'):
+        os.mkdir('./models')
+
+    n_epochs = config['n_epochs']
+    best_loss = math.inf  # 无穷大
+    step = 0
+    early_stop_count = 0
+
+    for epoch in range(n_epochs):
+        model.train()
+        loss_record = []
+        # 进度条就是封装了dataloader
+        train_pbar = tqdm(train_loader, position=0, leave=True)
+
+        for x, y in train_pbar:
+            optimizer.zero_grad()
+            x, y = x.to(device), y.to(device)
+            pred = model(x)
+            loss = criterion(pred, y)
+            loss.backward()
+            optimizer.step()
+            step += 1
+            # 记录损失值
+            loss_record.append(loss.detach().item())
+
+            train_pbar.set_description(f'Epoch [{epoch + 1}/{n_epochs}]')
+            train_pbar.set_postfix({'loss': loss.detach().item()})
+
+        # 评价loss
+        mean_train_loss = sum(loss_record) / len(loss_record)
+        writer.add_scalar('Loss/train', mean_train_loss, step)
+
+        # valid
+        model.eval()
+        loss_record = []
+        for x, y in valid_loader:
+            x, y = x.to(device), y.to(device)
+            with torch.no_grad():
+                pred = model(x)
+                loss = criterion(pred, y)
+            loss_record.append(loss.item())
+
+        mean_valid_loss = sum(loss_record) / len(loss_record)
+        print(f'Epoch [{epoch + 1}/{n_epochs}]: Train_loss: {mean_train_loss:.4f}, Valid loss: {mean_valid_loss:.4f}')
+        writer.add_scalar('Loss/valid', mean_valid_loss, step)
+
+        if mean_valid_loss < best_loss:
+            best_loss = mean_valid_loss
+            torch.save(model.state_dict(), config['save_path'])
+            print('Saving model with loss {:.3f}...', format(best_loss))
+            early_stop_count = 0
+        else:
+            early_stop_count += 1
+
+        train_pbar.set_description(f'Epoch [{epoch + 1}/{n_epochs}]')
+        train_pbar.set_postfix({'Best loss': '{0:1.5f}'.format(best_loss)})
+
+        if early_stop_count >= config['early_stop']:
+            print('\nModel is not improving, so we halt the training session.')
+            return None
+
+
+
+def predict(test_loader, model, device):
+    model.eval() # Set your model to evaluation mode.
+    preds = []
+    for x in tqdm(test_loader):  # tqmd可作为for循环迭代器使用，同时也提供进度条服务
+        x = x.to(device)
+        with torch.no_grad():
+            pred = model(x)
+            preds.append(pred.detach().cpu()) # detach()函数从原tensor中剥离出一个新的相等tensor，并将新tensor放入cpu。
+    preds = torch.cat(preds, dim=0).numpy() # 将preds列表拼接成tensor，再转化为np array。
+    return preds
+
+def save_pred(preds, file):
+    ''' Save predictions to specified file '''
+    with open(file, 'w') as fp:
+        writer = csv.writer(fp)
+        writer.writerow(['Id', 'SalePrice'])
+        for i, p in enumerate(preds):
+            writer.writerow([i, p])
+
+
+
+# 设置种子
+same_seed(config['seed'])
+# 读取数据
+
+# train_data = pd.read_csv('./data/kaggle_house_pred_train.csv').values
 train_data = pd.read_csv('../data/kaggle_house_pred_train.csv')
 test_data = pd.read_csv('../data/kaggle_house_pred_test.csv')
 
 print(train_data.shape)
 print(test_data.shape)
-# 使用 train_data.iloc[:, 1:-1] 选择 train_data 中从第2列到倒数第2列的所有行
-# 使用 test_data.iloc[:, 1:] 选择 test_data 中从第2列到最后列的所有行
-all_features = pd.concat((train_data.iloc[:, 1:-1], test_data.iloc[:, 1:]))
+# print(train_data[0:4, [0, 1, 2, 3, -3, -2, -1]])
 
 
-# 数据需要预处理
-# 首先需要将缺失的值替换为将所有缺失的值替换为相应特征的平均值
-# 并且为了将所有特征放在一个共同的尺度上， 我们通过将特征重新缩放到零均值和单位方差来标准化数据
-# 若无法获得测试数据，则可根据训练数据计算均值和标准差
-numeric_features = all_features.dtypes[all_features.dtypes != 'object'].index
-all_features[numeric_features] = all_features[numeric_features].apply(
+# 数据预处理
+# 去除id
+# all_features = pd.concat((train_data.iloc[:, 1:-1], test_data.iloc[:, 1:]))
+
+# # 若无法获得测试数据，则可根据训练数据计算均值和标准差
+numeric_features = train_data.dtypes[train_data.dtypes != 'object'].index
+train_data[numeric_features] = train_data[numeric_features].apply(
     lambda x: (x - x.mean()) / (x.std()))
 # 在标准化数据之后，所有均值消失，因此我们可以将缺失值设置为0
-all_features[numeric_features] = all_features[numeric_features].fillna(0)
-
-# 处理离散值
+train_data[numeric_features] = train_data[numeric_features].fillna(0)
 # “Dummy_na=True”将“na”（缺失值）视为有效的特征值，并为其创建指示符特征
-all_features = pd.get_dummies(all_features, dummy_na=True)
-all_features = all_features.astype({col: int for col in all_features.select_dtypes(include=['bool']).columns})
-print(all_features.shape)
-
-# 样本数量
-n_train = train_data.shape[0]
-
-# 分割特征数据 获取前 n_train 行作为训练特征
-train_features = torch.tensor(all_features[:n_train].values, dtype=torch.float32)
-test_features = torch.tensor(all_features[n_train:].values, dtype=torch.float32)
+train_data = pd.get_dummies(train_data, dummy_na=True)
+print(train_data.shape)
 
 
-# 转换训练标签为张量，获取salePrice的值，并reshape为一列
-train_labels = torch.tensor(
-    train_data.SalePrice.values.reshape(-1, 1), dtype=torch.float32)
-
-
-loss = nn.MSELoss()
-in_features = train_features.shape[1]
-
-class My_Model(nn.Module):
-    def __init__(self, input_dim):
-        super(My_Model, self).__init__()
-        # TODO: modify model's structure, be aware of dimensions.
-        self.layers = nn.Sequential(
-            nn.Linear(input_dim, 128),
-            nn.Sigmoid(),
-            nn.Linear(128, 1)
-
-        )
-
-    def forward(self, x):
-        x = self.layers(x)
-        # x = x.squeeze(1) # (B, 1) -> (B)
-        return x
+test_numeric_features = test_data.dtypes[test_data.dtypes != 'object'].index
+test_data[test_numeric_features] = test_data[test_numeric_features].apply(
+    lambda x: (x - x.mean()) / (x.std()))
+# 在标准化数据之后，所有均值消失，因此我们可以将缺失值设置为0
+test_data[test_numeric_features] = test_data[test_numeric_features].fillna(0)
+# “Dummy_na=True”将“na”（缺失值）视为有效的特征值，并为其创建指示符特征
+test_data = pd.get_dummies(test_data, dummy_na=True)
+print(test_data.shape)
 
 
 
-def get_net():
-    # net = nn.Sequential(nn.Linear(in_features,1))
-    # return net
-    model = My_Model(330)
-    return model
+# 划分数据
+# train_data, valid_data = train_valid_split(train_data, config['valid_ratio'], config['seed'])
+#
+# # 选择特征
+# x_train, x_valid, x_test, y_train, y_valid = select_feat(train_data, valid_data, test_data, config['select_all'])
+# print(f'number of features: {x_train.shape[1]}')
 
 
-
-def log_rmse(net, features, labels):
-    # 为了在取对数时进一步稳定该值，将小于1的值设置为1
-    clipped_preds = torch.clamp(net(features), 1, float('inf'))
-    rmse = torch.sqrt(loss(torch.log(clipped_preds),
-                           torch.log(labels)))
-    return rmse.item()
-
-def train(net, train_features, train_labels, test_features, test_labels,
-          num_epochs, learning_rate, weight_decay, batch_size):
-    train_ls, test_ls = [], []
-    train_iter = d2l.load_array((train_features, train_labels), batch_size)
-    # 这里使用的是Adam优化算法
-    optimizer = torch.optim.Adam(net.parameters(),
-                                 lr = learning_rate,
-                                 weight_decay = weight_decay)
-    for epoch in range(num_epochs):
-        for X, y in train_iter:
-            optimizer.zero_grad()
-            l = loss(net(X), y)
-            l.backward()
-            optimizer.step()
-        train_ls.append(log_rmse(net, train_features, train_labels))
-        if test_labels is not None:
-            test_ls.append(log_rmse(net, test_features, test_labels))
-    return train_ls, test_ls
-
-
-
-def get_k_fold_data(k, i, X, y):
-    assert k > 1
-    fold_size = X.shape[0] // k
-    X_train, y_train = None, None
-    for j in range(k):
-        idx = slice(j * fold_size, (j + 1) * fold_size)
-        X_part, y_part = X[idx, :], y[idx]
-        if j == i:
-            X_valid, y_valid = X_part, y_part
-        elif X_train is None:
-            X_train, y_train = X_part, y_part
-        else:
-            X_train = torch.cat([X_train, X_part], 0)
-            y_train = torch.cat([y_train, y_part], 0)
-    return X_train, y_train, X_valid, y_valid
-
-
-def k_fold(k, X_train, y_train, num_epochs, learning_rate, weight_decay,
-           batch_size):
-    train_l_sum, valid_l_sum = 0, 0
-    for i in range(k):
-        data = get_k_fold_data(k, i, X_train, y_train)
-        net = get_net()
-        train_ls, valid_ls = train(net, *data, num_epochs, learning_rate,
-                                   weight_decay, batch_size)
-        train_l_sum += train_ls[-1]
-        valid_l_sum += valid_ls[-1]
-        if i == 0:
-            d2l.plot(list(range(1, num_epochs + 1)), [train_ls, valid_ls],
-                     xlabel='epoch', ylabel='rmse', xlim=[1, num_epochs],
-                     legend=['train', 'valid'], yscale='log')
-        print(f'折{i + 1}，训练log rmse{float(train_ls[-1]):f}, '
-              f'验证log rmse{float(valid_ls[-1]):f}')
-    return train_l_sum / k, valid_l_sum / k
-
-
-k, num_epochs, lr, weight_decay, batch_size = 5, 500, 0.5, 0.01, 32
-train_l, valid_l = k_fold(k, train_features, train_labels, num_epochs, lr,
-                          weight_decay, batch_size)
-print(f'{k}-折验证: 平均训练log rmse: {float(train_l):f}, '
-      f'平均验证log rmse: {float(valid_l):f}')
-
-
-def train_and_pred(train_features, test_features, train_labels, test_data,
-                   num_epochs, lr, weight_decay, batch_size):
-    net = get_net()
-    train_ls, _ = train(net, train_features, train_labels, None, None,
-                        num_epochs, lr, weight_decay, batch_size)
-    d2l.plot(np.arange(1, num_epochs + 1), [train_ls], xlabel='epoch',
-             ylabel='log rmse', xlim=[1, num_epochs], yscale='log')
-    print(f'训练log rmse：{float(train_ls[-1]):f}')
-    # 将网络应用于测试集。
-    preds = net(test_features).detach().numpy()
-    # 将其重新格式化以导出到Kaggle
-    test_data['SalePrice'] = pd.Series(preds.reshape(1, -1)[0])
-    submission = pd.concat([test_data['Id'], test_data['SalePrice']], axis=1)
-    submission.to_csv('submission.csv', index=False)
-
-
-train_and_pred(train_features, test_features, train_labels, test_data,
-               num_epochs, lr, weight_decay, batch_size)
