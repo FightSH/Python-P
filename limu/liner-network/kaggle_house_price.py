@@ -49,7 +49,7 @@ def select_feat(train_data, valid_data, test_data, select_all=True):
 
     raw_x_valid = valid_data[:, :-1]
     # 测试集没最后的label
-    raw_x_test = test_data
+    raw_x_test = test_data[:, :-1]
 
     if select_all:
         feat_idx = list(range(raw_x_train.shape[1]))
@@ -57,8 +57,7 @@ def select_feat(train_data, valid_data, test_data, select_all=True):
         feat_idx = list(range(1, 37))
         for i in range(5):
             feat_idx += list(range(37 + i * 16, 37 + i * 16 + 13))
-    print(feat_idx)
-    return raw_x_train[:, feat_idx], raw_x_valid[:, feat_idx], raw_x_test[:, feat_idx], y_train, y_valid
+    return raw_x_train, raw_x_valid, raw_x_test, y_train, y_valid
 
 
 # 数据集类
@@ -214,40 +213,67 @@ test_data = pd.read_csv('../data/kaggle_house_pred_test.csv')
 
 print(train_data.shape)
 print(test_data.shape)
-# print(train_data[0:4, [0, 1, 2, 3, -3, -2, -1]])
+print(train_data.iloc[0:4, [0, 1, 2, 3, -3, -2, -1]])
 
 
 # 数据预处理
 # 去除id
-# all_features = pd.concat((train_data.iloc[:, 1:-1], test_data.iloc[:, 1:]))
+all_features = pd.concat((train_data.iloc[:, 1:-1], test_data.iloc[:, 1:]))
 
-# # 若无法获得测试数据，则可根据训练数据计算均值和标准差
-numeric_features = train_data.dtypes[train_data.dtypes != 'object'].index
-train_data[numeric_features] = train_data[numeric_features].apply(
+# 若无法获得测试数据，则可根据训练数据计算均值和标准差
+numeric_features = all_features.dtypes[all_features.dtypes != 'object'].index
+all_features[numeric_features] = all_features[numeric_features].apply(
     lambda x: (x - x.mean()) / (x.std()))
 # 在标准化数据之后，所有均值消失，因此我们可以将缺失值设置为0
-train_data[numeric_features] = train_data[numeric_features].fillna(0)
-# “Dummy_na=True”将“na”（缺失值）视为有效的特征值，并为其创建指示符特征
-train_data = pd.get_dummies(train_data, dummy_na=True)
-print(train_data.shape)
+all_features[numeric_features] = all_features[numeric_features].fillna(0)
+all_features = pd.get_dummies(all_features, dummy_na=True)
+print(all_features.shape)
 
 
-test_numeric_features = test_data.dtypes[test_data.dtypes != 'object'].index
-test_data[test_numeric_features] = test_data[test_numeric_features].apply(
-    lambda x: (x - x.mean()) / (x.std()))
-# 在标准化数据之后，所有均值消失，因此我们可以将缺失值设置为0
-test_data[test_numeric_features] = test_data[test_numeric_features].fillna(0)
-# “Dummy_na=True”将“na”（缺失值）视为有效的特征值，并为其创建指示符特征
-test_data = pd.get_dummies(test_data, dummy_na=True)
-print(test_data.shape)
+
+# 训练特征
+n_train = train_data.shape[0]
+train_features = np.array(all_features[:n_train].values, dtype=np.float32)
+print(train_features.shape)
+test_features = np.array(all_features[n_train:].values, dtype=np.float32)
+print(test_features.shape)
+train_labels = np.array(
+    train_data.SalePrice.values.reshape(-1, 1), dtype=np.float32)
 
 
 
 # 划分数据
-# train_data, valid_data = train_valid_split(train_data, config['valid_ratio'], config['seed'])
+train_data, valid_data = train_valid_split(train_features, config['valid_ratio'], config['seed'])
+
+
 #
 # # 选择特征
-# x_train, x_valid, x_test, y_train, y_valid = select_feat(train_data, valid_data, test_data, config['select_all'])
-# print(f'number of features: {x_train.shape[1]}')
+x_train, x_valid, x_test, y_train, y_valid = select_feat(train_data, valid_data, test_features, config['select_all'])
 
 
+print(f'number of features: {x_train.shape[1]}')
+print(x_test.shape)
+print(x_test.dtype)
+print(x_test.dtype)
+
+# 构造数据集
+train_dataset, valid_dataset, test_dataset = KaggleHouseDataset(x_train, y_train), \
+                                            KaggleHouseDataset(x_valid, y_valid), \
+                                            KaggleHouseDataset(x_test)
+
+# 准备DataLoader
+train_loader = DataLoader(train_dataset, batch_size=config['batch_size'], shuffle=True, pin_memory=True)
+valid_loader = DataLoader(valid_dataset, batch_size=config['batch_size'], shuffle=True, pin_memory=True)
+test_loader = DataLoader(test_dataset, batch_size=config['batch_size'], shuffle=False, pin_memory=True)
+
+
+model = My_Model(input_dim=x_train.shape[1]).to(device) # put your model and data on the same computation device.
+# 开始训练
+trainer(train_loader, valid_loader, model, config, device)
+
+
+model = My_Model(input_dim=x_train.shape[1]).to(device)
+model.load_state_dict(torch.load(config['save_path']))
+preds = predict(test_loader, model, device)
+# 保存预测结果
+save_pred(preds, 'pred.csv')
