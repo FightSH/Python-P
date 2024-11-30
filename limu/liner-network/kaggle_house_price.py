@@ -17,6 +17,8 @@ from torch.utils.data import Dataset, DataLoader, random_split
 # For plotting learning curve
 from torch.utils.tensorboard import SummaryWriter
 
+
+
 # 随机种子
 def same_seed(seed):
     '''Fixes random number generator seeds for reproducibility.'''
@@ -108,8 +110,8 @@ config = {
     'select_all': True,  # Whether to use all features.
     'valid_ratio': 0.2,  # validation_size = train_size * valid_ratio
     'n_epochs': 3000,  # Number of epochs.
-    'batch_size': 128,
-    'learning_rate': 1e-5,
+    'batch_size': 64,
+    'learning_rate': 1,
     'early_stop': 400,  # If model has not improved for this many consecutive epochs, stop training.
     'save_path': './models/model.ckpt'  # Your model will be saved here.
 }
@@ -239,22 +241,24 @@ test_features = np.array(all_features[n_train:].values, dtype=np.float32)
 print(test_features.shape)
 train_labels = np.array(
     train_data.SalePrice.values.reshape(-1, 1), dtype=np.float32)
-
-
-
+print(train_data.shape)
+print(train_labels.shape)
+print(train_features.shape)
+# print(train_labels)
 # 划分数据
+
+train_features = np.concatenate((train_features, train_labels), axis=1)
+
+
 train_data, valid_data = train_valid_split(train_features, config['valid_ratio'], config['seed'])
-
-
+print(train_data.shape)
+print(valid_data.shape)
 #
 # # 选择特征
 x_train, x_valid, x_test, y_train, y_valid = select_feat(train_data, valid_data, test_features, config['select_all'])
 
-
 print(f'number of features: {x_train.shape[1]}')
-print(x_test.shape)
-print(x_test.dtype)
-print(x_test.dtype)
+
 
 # 构造数据集
 train_dataset, valid_dataset, test_dataset = KaggleHouseDataset(x_train, y_train), \
@@ -268,7 +272,7 @@ test_loader = DataLoader(test_dataset, batch_size=config['batch_size'], shuffle=
 
 
 model = My_Model(input_dim=x_train.shape[1]).to(device) # put your model and data on the same computation device.
-# 开始训练
+# # 开始训练
 trainer(train_loader, valid_loader, model, config, device)
 
 
