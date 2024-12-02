@@ -15,17 +15,18 @@ def initialize_dataframe():
 
 
 def process_file(file_path):
-    try:
+    # try:
         df = pd.read_excel(file_path, skiprows=1)
         df['费款所属期'] = df['费款所属期'].astype(str)
         df['社会保障号'] = df['社会保障号'].astype(str)
-        df = df[~df['费款所属期'].isin(EXCLUDE_PERIODS)]
+        # df = df[~df['费款所属期'].isin(EXCLUDE_PERIODS)]
         df['费款所属期'] = df['费款所属期'].str[:4]
         grouped_df = df.groupby(['姓名', '社会保障号', '费款所属期'])['个人缴费'].sum().reset_index()
         return grouped_df
-    except Exception as e:
-        print(f"处理文件 {file_path} 时发生错误: {e}")
-        return None
+    # except Exception as e:
+    #     print(f"处理文件 {file_path} 时发生错误: {e}")
+    #     print(e)
+    #     return None
 def build_new_row(grouped_df):
 
 
@@ -45,6 +46,7 @@ def build_new_row(grouped_df):
 def main():
     totalDf = initialize_dataframe()
     print("请确保文件表头中有以下字段：姓名，社会保障号，费款所属期，个人缴费等名称")
+    print("统计维度是按照 姓名，社会保障号，和费款所属期进行统计的")
     FOLDER_PATH = input("请输入文件夹路径：")
 
     for file_name in os.listdir(FOLDER_PATH):
