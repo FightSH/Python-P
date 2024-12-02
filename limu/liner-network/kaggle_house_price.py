@@ -218,18 +218,18 @@ print(test_data.shape)
 print(train_data.iloc[0:4, [0, 1, 2, 3, -3, -2, -1]])
 
 
-# 数据预处理
-# 去除id
-all_features = pd.concat((train_data.iloc[:, 1:-1], test_data.iloc[:, 1:]))
-
-# 若无法获得测试数据，则可根据训练数据计算均值和标准差
-numeric_features = all_features.dtypes[all_features.dtypes != 'object'].index
-all_features[numeric_features] = all_features[numeric_features].apply(
-    lambda x: (x - x.mean()) / (x.std()))
-# 在标准化数据之后，所有均值消失，因此我们可以将缺失值设置为0
-all_features[numeric_features] = all_features[numeric_features].fillna(0)
-all_features = pd.get_dummies(all_features, dummy_na=True)
-print(all_features.shape)
+# # 数据预处理
+# # 去除id
+# all_features = pd.concat((train_data.iloc[:, 1:-1], test_data.iloc[:, 1:]))
+#
+# # 若无法获得测试数据，则可根据训练数据计算均值和标准差
+# numeric_features = all_features.dtypes[all_features.dtypes != 'object'].index
+# all_features[numeric_features] = all_features[numeric_features].apply(
+#     lambda x: (x - x.mean()) / (x.std()))
+# # 在标准化数据之后，所有均值消失，因此我们可以将缺失值设置为0
+# all_features[numeric_features] = all_features[numeric_features].fillna(0)
+# all_features = pd.get_dummies(all_features, dummy_na=True)
+# print(all_features.shape)
 
 
 
