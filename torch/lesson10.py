@@ -7,7 +7,7 @@ import torch.optim as optim
 
 # prepare dataset
 
-batch_size = 64
+batch_size = 32
 transform = transforms.Compose([transforms.ToTensor(), transforms.Normalize((0.1307,), (0.3081,))])
 
 train_dataset = datasets.MNIST(root='../dataset/mnist/', train=True, download=True, transform=transform)
