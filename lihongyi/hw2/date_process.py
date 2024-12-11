@@ -112,6 +112,7 @@ def preprocess_data(split, feat_dir, phone_path, concat_nframes, train_ratio=0.8
     class_num = 41  # NOTE: pre-computed, should not need change
     mode = 'train' if (split == 'train' or split == 'val') else 'test'
 
+# 这里存的是特征值
     label_dict = {}  # 索引字典  测试数据建立字典
     if mode != 'test':
         phone_file = open(os.path.join(phone_path, f'{mode}_labels.txt')).readlines()
@@ -158,7 +159,16 @@ def preprocess_data(split, feat_dir, phone_path, concat_nframes, train_ratio=0.8
         print(f"{fname}:{feat.shape}")
         # frame拼接
         cur_len = len(feat)
+        if i==0:
+            print(feat.shape)
+            print(feat)
+            print(cur_len)
+            print('--------------------------------')
+
         feat = concat_feat(feat, concat_nframes)
+        if i==0:
+            print(feat.shape)
+            print(feat)
         if mode != 'test':
             #   名字为key，拿到label值
             label = torch.LongTensor(label_dict[fname])
@@ -168,22 +178,21 @@ def preprocess_data(split, feat_dir, phone_path, concat_nframes, train_ratio=0.8
             y[idx: idx + cur_len] = label
 
         idx += cur_len
-
     X = X[:idx, :]
     if mode != 'test':
         y = y[:idx]
 
     print(f'[INFO] {split} set')
-    print(X.shape)
     if mode != 'test':
-        print(y.shape)
+
         return X, y
     else:
         return X
 
 
 # preprocess data
-train_X, train_y = preprocess_data(split='train', feat_dir='./libriphone/feat', phone_path='./libriphone', concat_nframes=3, train_ratio=0.8)
-
-
-
+train_X, train_y = preprocess_data(split='train', feat_dir='./libriphone/feat', phone_path='./libriphone', concat_nframes=5, train_ratio=0.8)
+print('++++++++++++++++++++')
+print(train_X.shape)
+print(train_y.shape)
+print(train_y)

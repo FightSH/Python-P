@@ -214,6 +214,8 @@ class BasicBlock(nn.Module):
         self.block = nn.Sequential(
             nn.Linear(input_dim, output_dim),
             nn.ReLU(),
+            nn.BatchNorm1d(output_dim),
+            nn.Dropout(0.35)
         )
 
     def forward(self, x):
@@ -239,13 +241,13 @@ class Classifier(nn.Module):
 ## Hyper-parameters
 
 # data prarameters
-concat_nframes = 3              # the number of frames to concat with, n must be odd (total 2k+1 = n frames)
-train_ratio = 0.8               # the ratio of data used for training, the rest will be used for validation
+concat_nframes = 11              # the number of frames to concat with, n must be odd (total 2k+1 = n frames)
+train_ratio = 0.95               # the ratio of data used for training, the rest will be used for validation
 
 # training parameters
 seed = 0                        # random seed
-batch_size = 512                # batch size
-num_epoch = 5                   # the number of training epoch
+batch_size = 2048                # batch size
+num_epoch = 10                   # the number of training epoch
 learning_rate = 0.0001          # learning rate
 model_path = './model.ckpt'     # the path where the checkpoint will be saved
 
@@ -287,7 +289,7 @@ same_seed(seed)
 model = Classifier(input_dim=input_dim, hidden_layers=hidden_layers, hidden_dim=hidden_dim).to(device)
 criterion = nn.CrossEntropyLoss()
 optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate)
-
+scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer,T_0=8,T_mult=2,eta_min = learning_rate/2)
 
 # training
 best_acc = 0.0
