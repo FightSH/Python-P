@@ -215,7 +215,7 @@ class BasicBlock(nn.Module):
             nn.Linear(input_dim, output_dim),
             nn.ReLU(),
             nn.BatchNorm1d(output_dim),
-            nn.Dropout(0.35)
+            # nn.Dropout(0.35)
         )
 
     def forward(self, x):
