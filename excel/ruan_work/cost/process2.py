@@ -33,6 +33,9 @@ pivot_df = grouped_df.pivot_table(
 )
 # 重置列索引
 pivot_df.columns = ['_'.join(col).strip() for col in pivot_df.columns.values]
+
+
+
 pivot_df = pivot_df.reset_index()
 
 print("数据透视表:")

@@ -2,7 +2,7 @@ import pandas as pd
 import os
 
 file_name = 'groupData.xlsx'
-file_path = os.path.join('E:\MyCode\py\pythonP\python-p\excel\\ruan_work', file_name)
+file_path = os.path.join('/excel/ruan_work', file_name)
 print(f"开始处理文件: {file_name}")
 df = pd.read_excel(file_path)
 # print(df)

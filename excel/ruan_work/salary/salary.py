@@ -18,6 +18,9 @@ for sheet_name in xls.sheet_names:
     df = pd.read_excel(xls, sheet_name=sheet_name)
     # 对每个数据项去除空格
     df['人员编号'] = df['人员编号'].fillna(-1).astype(float).astype(int).astype(str)
+
+
+
     df['姓名'] = df['姓名'].astype(str)
     df = df.applymap(lambda x: x.strip() if isinstance(x, str) else x)
     print(df)
