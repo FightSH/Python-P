@@ -1,15 +1,17 @@
 import os
 from openai import OpenAI
-
+# os.environ['OPENAI_API_KEY'] = 'sk-bb43503a64df4dedbe3178d89ff1803a'
 os.environ['OPENAI_API_KEY'] = 'sk-6f069872e8b2469dab56f951dae263b1'
 
 
 def get_response(messages):
     client = OpenAI(
         api_key=os.getenv('OPENAI_API_KEY'),
+        # base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
         base_url="https://api.deepseek.com",
     )
     completion = client.chat.completions.create(
+        # model="qwen-turbo",
         model="deepseek-chat",
         messages=messages
     )
