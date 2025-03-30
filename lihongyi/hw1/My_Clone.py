@@ -226,7 +226,34 @@ def save_pred(preds, file):
         for i, p in enumerate(preds):
             writer.writerow([i, p])
 
+def print_model_info(model, print_param_values=False):
+    """
+    Prints model architecture and parameters
 
+    Args:
+        model: PyTorch model
+        print_param_values: If True, prints actual parameter values (can be verbose)
+    """
+    print("\n" + "="*50)
+    print("MODEL ARCHITECTURE:")
+    print("="*50)
+    print(model)
+
+    print("\n" + "="*50)
+    print("MODEL PARAMETERS:")
+    print("="*50)
+
+    total_params = 0
+    for name, param in model.named_parameters():
+        param_count = param.numel()
+        total_params += param_count
+        print(f"{name}: shape={tuple(param.shape)}, parameters={param_count}")
+        if print_param_values:
+            print(f"Values: {param.data}")
+
+    print("\n" + "="*50)
+    print(f"TOTAL PARAMETERS: {total_params:,}")
+    print("="*50 + "\n")
 
 # 设置种子
 same_seed(config['seed'])
@@ -251,6 +278,9 @@ valid_loader = DataLoader(valid_dataset, batch_size=config['batch_size'], shuffl
 test_loader = DataLoader(test_dataset, batch_size=config['batch_size'], shuffle=False, pin_memory=True)
 
 model = My_Model(input_dim=x_train.shape[1]).to(device) # put your model and data on the same computation device.
+# Print model architecture and parameters before training
+print_model_info(model)
+
 # 开始训练
 trainer(train_loader, valid_loader, model, config, device)
 
@@ -258,8 +288,11 @@ trainer(train_loader, valid_loader, model, config, device)
 
 model = My_Model(input_dim=x_train.shape[1]).to(device)
 model.load_state_dict(torch.load(config['save_path']))
+# Print model architecture and parameters after loading trained model
+print_model_info(model)
 preds = predict(test_loader, model, device)
 # 保存预测结果
 save_pred(preds, 'pred.csv')
+
 
 
