@@ -58,7 +58,7 @@ pivot_df = pivot_df[new_order]
 # print(pivot_df)
 
 pivot_df['个人'] = pivot_df['个人实缴金额_大额医疗费用补助'] + pivot_df['个人实缴金额_职工基本医疗保险']
-pivot_df['单位'] = pivot_df['单位实缴金额_公务员医疗补助'] + pivot_df['单位实缴金额_大额医疗费用补助']+pivot_df['单位实缴金额_职工基本医疗保险']
+pivot_df['单位'] = pivot_df['单位实缴金额_大额医疗费用补助']+pivot_df['单位实缴金额_职工基本医疗保险']
 pivot_df['公务员'] = pivot_df['单位实缴金额_公务员医疗补助'] + pivot_df['其他缴费金额_公务员医疗补助']
 
 # print("数据透视表和汇总统计:")
